@@ -3,19 +3,17 @@ from .models import Post, Like, Repost
 
 
 class PostSerializers(serializers.ModelSerializer):
-
     class Meta:
         model = Post
-        fields = ["content", "img"]
+        fields = ["content", "img"]  # Ensure img is also included if needed
 
     def create(self, validated_data):
-
-        request = self.context["request"]
+        request = self.context.get("request")
         if request and request.user:
             post = Post.objects.create(
                 user=request.user,
-                context=validated_data.get("content"),
-                img=validated_data.get("img"),
+                content=validated_data.get("content"),  # Fixed field name
+                img=validated_data.get("img"),  # Ensure this field exists in the model
             )
             return post
         else:
@@ -25,14 +23,12 @@ class PostSerializers(serializers.ModelSerializer):
 class LikeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Like
-        field = ["post"]
+        fields = ["post"]  # Fixed 'field' to 'fields'
 
-    def create(self, validate_data):
-        request = self.context["request"]
-
+    def create(self, validated_data):
+        request = self.context.get("request")
         if request and request.user:
-            post = validate_data.get("post")
-
+            post = validated_data.get("post")
             like, created = Like.objects.get_or_create(user=request.user, post=post)
 
             if not created:
@@ -40,24 +36,22 @@ class LikeSerializer(serializers.ModelSerializer):
                 return None
             return like
         else:
-            raise serializers.ValidationError("user is not authenticated")
+            raise serializers.ValidationError("User is not authenticated")
 
 
 class RepostSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Repost
-        field = ["repost"]
+        fields = ["post"]  # Assuming 'post' is the field being reposted
 
-        def create(self, validated_data):
-            request = self.content["request"]
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and request.user:
+            post = validated_data.get("post")
+            repost, created = Repost.objects.get_or_create(user=request.user, post=post)
 
-            if request and request.user:
-                post = validated_data.get("post")
-                repost, created = Post.objects.get_or_create(
-                    user=request.user, post=post
-                )
-
-                if not created:
-                    raise ValueError("repost already done")
-                return repost
+            if not created:
+                raise ValueError("Repost already done")
+            return repost
+        else:
+            raise serializers.ValidationError("User is not authenticated")
